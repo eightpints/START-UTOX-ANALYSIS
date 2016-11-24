@@ -49,9 +49,3 @@ utox.visualization(meth.col, "Meth", 150)
 utox.visualization(cannabis.col, "Cannabis", 150)
 utox.visualization(prop.col, "Propoxyphene", 150)
 dev.off()
-
-data <- data.matrix(data)
-amp.data <- UDS[,amp.col ]
-amp.data <- data.matrix(amp.data)
-amp.fpca <- fpca.sc(amp.data)
-refund.shiny::plot_shiny(amp.fpca)

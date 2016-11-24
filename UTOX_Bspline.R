@@ -15,11 +15,11 @@ utox.bspline <- function(data , plot = TRUE){
   bspline <- data.frame(x = x.values, y = predict(mod,data.frame(x=x.values)))
   
   if(plot){
-  mainlab <- paste(c("Patient", colnames(data)[1]), collapse = " ")
-  plot(x, y, xlab = "Week", ylab = "Positive/Negative", main = mainlab )
-  lines(bspline, col = "red", lwd = 2)
+    mainlab <- paste(c("Patient", colnames(data)[1]), collapse = " ")
+    plot(x, y, xlab = "Week", ylab = "Positive/Negative", main = mainlab )
+    lines(bspline, col = "red", lwd = 2)
   }
-  
+  View(bspline)
   return(bspline)
 }
 
@@ -49,10 +49,9 @@ utox.predict.missing <- function(data){
 pdf(file = "C:\\Users\\Galen\\Documents\\2016 Lab\\SF36_PCA\\UTOX Predictions.pdf")
 par(mfrow=c(2,2))
 for (x in 1:50){
-  data <- t(UDS[x,opiate.col])
-  
+  data <- t(UDS[i,opiate.col])
+
   if (any(is.na(data))){
-    print(paste(c("has na", x, collapse = " ")))
     bspline <- utox.bspline(data)
     missing <- utox.predict.missing(data)
   }
