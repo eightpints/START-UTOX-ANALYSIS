@@ -2,79 +2,47 @@
 library(refund)
 library(plotrix)
 library(ggplot2)
+library(STARTclindata)
 
-#i - patient index
+data("startdata")
+UDS <- startdata$UDS
 
-#part one, generating time dependent probability density functions 
-#first 200, flat responders
-prob_patient<-matrix(NA,1000,24)
-utox_patient<-matrix(NA,1000,24)
+opiate.col <- c(seq (from = 27, to= 802, by = 31))
+Opiate_UDS <- UDS[,opiate.col]
+Opiate_UDS = as.matrix(as.data.frame(lapply(Opiate_UDS, as.numeric)))
+
+#convert missing to positive
+Opiate_UDS[Opiate_UDS == -5] <- 1
+Opiate_UDS[is.na(Opiate_UDS)] <-1
+
+opiate_data <- Opiate_UDS[1,]
+treatment_group <- startdata$demog[1,c(1,6)]
 
 
-
-for (i in 1: 250)
-{
-  #each patient has one value throughout the study
-  flat_value=rnorm(1, mean = 0.95, sd = 0.05) #probability of negative urine
-  prob_patient[i,]<-matrix(flat_value,1,24)  
+for (x in 1:1278){
+  test <- Opiate_UDS[x,]
+  treatment <- startdata$demog[x,c(1,6)]
   
-  #generate a batch of uniform random numbers
-  random_value<-runif(24, 0, 1)
-  utox_patient[i,]<-as.numeric(random_value>prob_patient[i,])
+  if (any(is.na(test))){
+  }else {
+    if (any(test=="-5")){
+    }else{
+      opiate_data <- rbind(test, opiate_data)
+      treatment_group <- rbind(treatment, treatment_group)
+    }
+  }
 }
 
+#shapes for later on
+treatment_group[treatment_group == 1] <- 16
+treatment_group[treatment_group == 2] <- 17
 
-
-for (i in 251: 500)
-{
-  #each patient has one value throughout the study
-  flat_value=rnorm(1, mean = 0.5, sd = 0.05)
-  prob_patient[i,]<-matrix(flat_value,1,24)  
-  
-  #generate a batch of uniform random numbers
-  random_value<-runif(24, 0, 1)
-  utox_patient[i,]<-as.numeric(random_value>prob_patient[i,])
-}
-
-
-
-for (i in 501: 1000)
-{
-  #each patient has one value throughout the study
-  alpha=rnorm(1, mean=0.5,sd=0.01)
-  
-  prob_patient[i,]<- 1-exp(-alpha*(1:24))
-  
-  #generate a batch of uniform random numbers
-  random_value<-runif(24, 0, 1)
-  utox_patient[i,]<-as.numeric(random_value>prob_patient[i,])
-}
-
-
-
-image(utox_patient,xlim=range(1:24))
+#method is only for the first 24 weeks
+opiate_data <- opiate_data[,1:24]
 
 #class information
-utox_class<-matrix(NA,1000,1)
-utox_class[1:250]<-rep(1,250)
-utox_class[1:251]<-rep(3,500)
-utox_class[501:1000]<-rep(2,500)
-
-### PCA DOES A VERY BAD JOB ######
-utox_pca<-princomp(utox_patient[,])$scores
-
-dat <- data.frame(c = utox_class, 
-                  xvar = utox_pca[,1],
-                  yvar = utox_pca[,2])
-p<-ggplot(dat, aes(x=xvar, y=yvar, color=c))
-p + geom_point()
-
-
-d=kmeans(utox_pca,3)$cluster
-p<-ggplot(dat, aes(x=xvar, y=yvar, color=d))
-p + geom_point()
-
-
+utox_class<-matrix(NA,1278,1)
+utox_class[1:1278]<-rep(1,1278)
 
 
 ###### Gaussian Process Regression
@@ -134,40 +102,36 @@ k.xsxs <- calcSigma(x.star,x.star)
 # The standard deviation of the noise
 sigma.n <- 0.1
 
-utox.f.bar<-matrix(NA,1000,24)
-utox.f.coefs<-matrix(NA,1000,2)
+utox.f.bar<-matrix(NA,1278,24)
+utox.f.coefs<-matrix(NA,1278,2)
 
 
 
-for (i in 1:1000)
-  {
-# 2. Now let's assume that we have some known data points;
-# this is the case of Figure 2.2(b). In the book, the notation 'f'
-# is used for f$y below.  I've done this to make the ggplot code
-# easier later on.
-f <- data.frame(x=1:24,
-                y=utox_patient[i,])
-
-# Calculate the covariance matrices
-# using the same x.star values as above
-x <- f$x
-
-# Recalculate the mean and covariance functions
-f.bar.star <- k.xsx%*%solve(k.xx + sigma.n^2*diag(1, ncol(k.xx)))%*%f$y
-cov.f.star <- k.xsxs - k.xsx%*%solve(k.xx + sigma.n^2*diag(1, ncol(k.xx)))%*%k.xxs
-
-utox.f.bar[i,]<-f.bar.star
-
-#extract two coefficients assuming that f.bar is exponential 
-y=log(f.bar.star+1)
-x=1:24
-utox.f.coefs[i,]<-glm(y~x)$coefficients
-
+for (i in 1:1278)
+{
+  # 2. Now let's assume that we have some known data points;
+  # this is the case of Figure 2.2(b). In the book, the notation 'f'
+  # is used for f$y below.  I've done this to make the ggplot code
+  # easier later on.
+  f <- data.frame(x=1:24,
+                  y=opiate_data[i,])
+  
+  # Calculate the covariance matrices
+  # using the same x.star values as above
+  x <- f$x
+  
+  # Recalculate the mean and covariance functions
+  f.bar.star <- k.xsx%*%solve(k.xx + sigma.n^2*diag(1, ncol(k.xx)))%*%f$y
+  cov.f.star <- k.xsxs - k.xsx%*%solve(k.xx + sigma.n^2*diag(1, ncol(k.xx)))%*%k.xxs
+  
+  utox.f.bar[i,]<-f.bar.star
+  
+  #extract two coefficients assuming that f.bar is exponential 
+  y=log(f.bar.star+1)
+  x=1:24
+  utox.f.coefs[i,]<-glm(y~x)$coefficients
+  
 }
-
-
-
-
 
 
 #plot the mean functions using straight PCA
@@ -180,9 +144,8 @@ p<-ggplot(dat, aes(x=xvar, y=yvar, color=c))
 p + geom_point()
 
 
-
-
-d=kmeans(utox.f.coefs,3)$cluster
+d=kmeans(utox.f.coefs,2)$cluster
 p<-ggplot(dat, aes(x=xvar, y=yvar, color=d))
-p + geom_point()
-
+p + geom_point(shape = treatment_group[1:1278,2])+ 
+  labs(title = "K-means cluster")
+  
